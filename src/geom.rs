@@ -1,7 +1,7 @@
 use core::ops;
 use js_sys::Math::{sin, cos};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Point {
     pub x: f32,
     pub y: f32,
@@ -28,13 +28,6 @@ impl ops::Mul<f32> for Point {
 
     fn mul(self, v: f32) -> Point {
         Point { x: self.x * v, y: self.y * v }
-    }
-}
-
-impl Copy for Point {}
-impl Clone for Point {
-    fn clone(&self) -> Self {
-        Point { x: self.x, y: self.y }
     }
 }
 
