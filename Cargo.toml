@@ -1,0 +1,45 @@
+[package]
+name = "kosygin"
+version = "0.1.0"
+authors = ["Konstantin Shutkin <shootkin@gmail.com>"]
+edition = "2018"
+description = "WASM playground"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+js-sys = "0.3.31"
+wasm-bindgen = "0.2"
+futures = "0.3.1"
+wasm-bindgen-futures = "0.4.4"
+
+[dependencies.web-sys]
+version = "0.3.4"
+features = ['Document',
+  'console',
+  'Event',
+  'MouseEvent',
+  'TouchEvent',
+  'TouchList',
+  'Touch',
+  'Element',
+  'EventTarget',
+  'Headers',
+  'Request',
+  'RequestInit',
+  'RequestMode',
+  'Response',
+  'Blob',
+  'ImageBitmap',
+  'HtmlCanvasElement',
+  'CanvasRenderingContext2d',
+  'WebGlBuffer',
+  'WebGlRenderingContext',
+  'WebGlProgram',
+  'WebGlUniformLocation',
+  'WebGlShader',
+  'WebGlTexture',
+  'Window',
+  "Crypto",
+]
