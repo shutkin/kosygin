@@ -2,7 +2,7 @@ kosygin
 
 Rust + wasm
 
-https://user-images.githubusercontent.com/6892662/69668135-5bd94980-10a0-11ea-9f3c-1bfe06b62703.PNG
+![snowflake](https://user-images.githubusercontent.com/6892662/69668135-5bd94980-10a0-11ea-9f3c-1bfe06b62703.PNG)
 
 #installation
 download and install rustup from https://rustup.rs/
