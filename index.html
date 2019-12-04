@@ -8,6 +8,14 @@
     body, html {height:100%; overscroll-behavior: none;}
     canvas {position:absolute; width:100%; height:100%;}
     </style>
+    <script type="module">
+      import { start, default as init } from './kosygin.js';
+      async function run() {
+        await init('./kosygin_bg.wasm');
+        start();
+      }
+      run();
+    </script>
 </head>
 <body>
 <canvas id="canvas">Canvas not supported</canvas>
