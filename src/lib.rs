@@ -18,9 +18,7 @@ use crate::Stage::{LOADING, SNOWFLAKES};
 use js_sys::Math::cos;
 
 mod logger;
-mod geom;
-mod renderer;
-mod resource_manager;
+mod scene;
 
 const IMAGES_URL: [&str; 6] = ["/img/snowflake0.png", "/img/snowflake1.png", "/img/snowflake2.png",
     "/img/snowflake3.png", "/img/snowflake4.png", "/img/snowflake5.png"];
@@ -29,24 +27,6 @@ const IMAGES_URL: [&str; 6] = ["/img/snowflake0.png", "/img/snowflake1.png", "/i
 enum Stage {
     LOADING, SNOWFLAKES
 }
-
-struct RendererContext {
-    renderer: Renderer,
-    atlas: TextureAtlas,
-    projection: Projection,
-}
-
-struct SceneContext {
-    stage: Stage,
-    renderer_context: RendererContext,
-    images: Vec<ImageBitmap>,
-    sprites: Vec<Sprite>,
-    mouse_pos: Option<Point>,
-    last_render_mouse_pos: Option<Point>,
-    wind: Point,
-    last_render_time: u64
-}
-
 
 #[wasm_bindgen(start)]
 pub fn start() -> Result<(), JsValue> {
@@ -64,54 +44,6 @@ async fn run_logged() {
 async fn run() -> Result<(), (JsValue)> {
     let window = web_sys::window().unwrap();
 
-    let mut context = SceneContext {
-        stage: LOADING,
-        renderer_context: create_renderer()?,
-        sprites: Vec::new(),
-        images: Vec::with_capacity(IMAGES_URL.len()),
-        mouse_pos: None,
-        last_render_mouse_pos: None,
-        wind: Point { x: 0.0, y: 0.0 },
-        last_render_time: 0 };
-    let context_rc = Rc::new(RefCell::new(context));
-    create_loading_scene(context_rc.clone().borrow_mut());
-    request_animation_frame(context_rc.clone())?;
-    {
-        let context_rc = context_rc.clone();
-        let closure = Closure::wrap(Box::new(move |_: web_sys::Event| {
-            let stage = context_rc.borrow().stage;
-            match {create_renderer()} {
-                Ok(renderer_context) => {
-                    context_rc.clone().borrow_mut().renderer_context = renderer_context;
-                    match stage {
-                        LOADING => create_loading_scene(context_rc.clone().borrow_mut()),
-                        SNOWFLAKES => create_scene(context_rc.clone().borrow_mut())
-                    };
-                },
-                Err(e) => log_error(format!("Filed to create renderer, {:?}", &e).as_str())
-            };
-        }) as Box<dyn Fn(_)>);
-        window.add_event_listener_with_callback("resize", closure.as_ref().unchecked_ref());
-        closure.forget();
-    }
-    {
-        let context_rc = context_rc.clone();
-        let closure = Closure::wrap(Box::new(move |e: MouseEvent| {
-            mouse_move_handler(context_rc.borrow_mut(), e);
-        }) as Box<dyn Fn(MouseEvent)>);
-        window.add_event_listener_with_callback("mousemove", closure.as_ref().unchecked_ref());
-        closure.forget();
-    }
-    {
-        let context_rc = context_rc.clone();
-        let closure = Closure::wrap(Box::new(move |e: TouchEvent| {
-            touch_move_handler(context_rc.borrow_mut(), e);
-        }) as Box<dyn Fn(TouchEvent)>);
-        window.add_event_listener_with_callback("touchstart", closure.as_ref().unchecked_ref());
-        window.add_event_listener_with_callback("touchmove", closure.as_ref().unchecked_ref());
-        window.add_event_listener_with_callback("touchend", closure.as_ref().unchecked_ref());
-        closure.forget();
-    }
 
     log_info("Start fetch images");
     for image in IMAGES_URL.iter() {
@@ -130,29 +62,6 @@ async fn run() -> Result<(), (JsValue)> {
 
     create_scene(context_rc.borrow_mut());
     Ok(())
-}
-
-fn create_renderer() -> Result<RendererContext, JsValue> {
-    let window = web_sys::window().unwrap();
-    let pixel_ratio = window.device_pixel_ratio();
-    let pixel_ratio = if pixel_ratio < 1.0 { 1.0 } else { pixel_ratio };
-    let window_width = window.inner_width()?;
-    let window_width: Number = window_width.dyn_into::<Number>()?;
-    let width = (window_width.value_of() * pixel_ratio) as u32;
-    let window_height = window.inner_height()?;
-    let window_height: Number = window_height.dyn_into::<Number>()?;
-    let height = (window_height.value_of() * pixel_ratio) as u32;
-
-    let document = window.document().unwrap();
-    let canvas = document.get_element_by_id("canvas").unwrap();
-    let canvas: HtmlCanvasElement = canvas.dyn_into::<HtmlCanvasElement>()?;
-    canvas.set_width(width);
-    canvas.set_height(height);
-    log_info(format!("Canvas sizes: {}x{}, pixel ratio {}", width, height, pixel_ratio).as_str());
-    let renderer = Renderer::init(&canvas)?;
-    let atlas = TextureAtlas::empty();
-    let projection = Projection::create(width, height);
-    Ok(RendererContext { renderer, atlas, projection })
 }
 
 fn create_loading_scene(mut context: RefMut<SceneContext>) -> Result<(), JsValue> {
@@ -193,59 +102,7 @@ fn create_loading_scene(mut context: RefMut<SceneContext>) -> Result<(), JsValue
     Ok(())
 }
 
-fn create_scene(mut context: RefMut<SceneContext>) -> Result<(), JsValue> {
-    let window = web_sys::window().unwrap();
-    let document = window.document().unwrap();
-    context.renderer_context.atlas = context.renderer_context.renderer.create_texture_with_images(&document, &context.images)?;
-
-    let width = context.renderer_context.projection.canvas_width;
-    let height = context.renderer_context.projection.canvas_height;
-    context.sprites.clear();
-    let crypto = window.crypto()?;
-    let crypto: Crypto = crypto.dyn_into::<Crypto>().unwrap();
-    let textures = context.images.len();
-    let snowflakes_quantity = (width as f32 * height as f32 * 0.0006) as usize;
-    for i in 0..snowflakes_quantity {
-        let tex_index = rand_range(&crypto, 0.0, textures as f32)? as usize;
-        let image = &context.images[tex_index];
-        let distance = i as f32 / snowflakes_quantity as f32;
-        let size = 15.0 + distance * 80.0;
-        let sprite_width = size;
-        let sprite_height = size * image.height() as f32 / image.width() as f32;
-        let position = Point {
-            x: rand_range(&crypto, -100.0, 100.0 + width as f32)?,
-            y: rand_range(&crypto, -100.0, 100.0 + height as f32)?,
-        };
-        context.sprites.push(Sprite {
-            texture: tex_index,
-            position,
-            pivot: Point { x: sprite_width * 0.5, y: sprite_height * 0.5 },
-            rotation: rand_range(&crypto, 0.0, 2.0 * PI)?,
-            width: sprite_width,
-            height: sprite_height,
-            alpha: 0.25 + distance * 0.4,
-        })
-    }
-    context.stage = SNOWFLAKES;
-    Ok(())
-}
-
-fn mouse_move_handler(mut context: RefMut<SceneContext>, e: MouseEvent) {
-    context.mouse_pos =  if e.buttons() == 1 {
-        Some(Point { x: e.client_x() as f32, y : e.client_y() as f32 })
-    } else { None };
-    log_debug(format!("Mouse: {:?}", &context.mouse_pos).as_str());
-}
-
-fn touch_move_handler(mut context: RefMut<SceneContext>, e: TouchEvent) {
-    context.mouse_pos = match e.touches().get(0) {
-        Some(t) => Some(Point { x: t.client_x() as f32, y : t.client_y() as f32 }),
-        None => None
-    };
-    log_debug(format!("Mouse: {:?}", &context.mouse_pos).as_str());
-}
-
-fn render_loop(mut context: RefMut<SceneContext>) {
+fn render_loop() {
     match context.stage {
         LOADING => render_loop_loading(context),
         SNOWFLAKES => render_loop_snowflakes(context)
@@ -321,19 +178,6 @@ fn render_loop_snowflakes(mut context: RefMut<SceneContext>) {
             sprite.rotation -= 2.0 * PI;
         }
     }
-    context.renderer_context.renderer.render(
-        &context.renderer_context.projection, &context.sprites, &context.renderer_context.atlas);
-}
-
-fn request_animation_frame(context: Rc<RefCell<SceneContext>>) -> Result<(), JsValue> {
-    let closure = Closure::wrap(Box::new(move || {
-        render_loop(context.borrow_mut());
-        request_animation_frame(context.clone());
-    }) as Box<dyn Fn()>);
-    let window = web_sys::window().unwrap();
-    window.request_animation_frame(closure.as_ref().unchecked_ref())?;
-    closure.forget();
-    Ok(())
 }
 
 fn rand_range(crypto: &Crypto, min: f32, max: f32) -> Result<f32, JsValue> {
