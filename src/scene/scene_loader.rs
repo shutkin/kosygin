@@ -1,5 +1,5 @@
 use wasm_bindgen_futures::JsFuture;
-use web_sys::{RequestInit, RequestMode, Request};
+use web_sys::{RequestInit, RequestMode, Request, ImageBitmap};
 use wasm_bindgen::JsValue;
 
 pub struct SceneLoader {

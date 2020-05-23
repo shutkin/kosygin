@@ -9,24 +9,24 @@ pub enum Level {
     ERROR
 }
 
-const DEBUG_LEVEL: Level = INFO;
+const LOG_LEVEL: Level = DEBUG;
 
 pub fn log_debug(x: &str) {
-    match DEBUG_LEVEL {
+    match LOG_LEVEL {
         DEBUG => console::log_1(&JsValue::from_str((String::from("[DEBUG] ") + x).as_str())),
         _ => {}
     }
 }
 
 pub fn log_info(x: &str) {
-    match DEBUG_LEVEL {
+    match LOG_LEVEL {
         DEBUG | INFO => console::log_1(&JsValue::from_str((String::from("[INFO] ") + x).as_str())),
         _ => {}
     }
 }
 
 pub fn log_warn(x: &str) {
-    match DEBUG_LEVEL {
+    match LOG_LEVEL {
         DEBUG | INFO | WARN => console::log_1(&JsValue::from_str((String::from("[WARN] ") + x).as_str())),
         _ => {}
     }
