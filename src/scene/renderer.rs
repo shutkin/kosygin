@@ -10,7 +10,10 @@ pub struct Renderer {
     gl: WebGlRenderingContext,
     vertices_buffer: WebGlBuffer,
     indices_buffer: WebGlBuffer,
+    vert_shader: WebGlShader,
+    frag_shader: WebGlShader,
     program: WebGlProgram,
+    texture: Option<WebGlTexture>,
 }
 
 pub struct Projection {
@@ -30,12 +33,6 @@ pub struct TextureAtlas {
     items: Vec<TexAtlasItem>,
     width: u32,
     height: u32,
-}
-
-impl TextureAtlas {
-    pub fn empty() -> TextureAtlas {
-        TextureAtlas { items: Vec::new(), width: 0, height: 0 }
-    }
 }
 
 pub struct Sprite {
@@ -74,7 +71,7 @@ impl Renderer {
         gl.enable(WebGlRenderingContext::BLEND);
         gl.blend_func(WebGlRenderingContext::SRC_ALPHA, WebGlRenderingContext::ONE_MINUS_SRC_ALPHA);
         log_info("Renderer initialized");
-        Ok(Renderer { gl, vertices_buffer, indices_buffer, program })
+        Ok(Renderer { gl, vertices_buffer, indices_buffer, vert_shader, frag_shader, program, texture: None })
     }
 
     fn compile_shader(gl: &WebGlRenderingContext, shader_type: u32, source: &str) -> Result<WebGlShader, String> {
@@ -160,7 +157,7 @@ impl Renderer {
         }
     }
 
-    pub fn create_texture_with_images(&self, document: &Document, images: &Vec<ImageBitmap>) -> Result<TextureAtlas, JsValue> {
+    pub fn create_texture_with_images(&mut self, document: &Document, images: &Vec<ImageBitmap>) -> Result<TextureAtlas, JsValue> {
         let mut textures: Vec<TexAtlasItem> = Vec::with_capacity(images.len());
         let mut total_height = 0_u32;
         let mut total_width = 0_u32;
@@ -202,10 +199,11 @@ impl Renderer {
         self.gl.tex_parameteri(WebGlRenderingContext::TEXTURE_2D, WebGlRenderingContext::TEXTURE_MAG_FILTER, WebGlRenderingContext::LINEAR as i32);
         self.gl.tex_parameteri(WebGlRenderingContext::TEXTURE_2D, WebGlRenderingContext::TEXTURE_MIN_FILTER, WebGlRenderingContext::LINEAR_MIPMAP_LINEAR as i32);
         self.gl.generate_mipmap(WebGlRenderingContext::TEXTURE_2D);
+        self.texture = Some(tex);
         Ok(TextureAtlas { items: textures, width: total_width, height: total_height })
     }
 
-    pub fn create_texture_with_canvases(&self, document: &Document, canvases: &Vec<HtmlCanvasElement>) -> Result<TextureAtlas, JsValue> {
+    pub fn create_texture_with_canvases(&mut self, document: &Document, canvases: &Vec<HtmlCanvasElement>) -> Result<TextureAtlas, JsValue> {
         let mut textures: Vec<TexAtlasItem> = Vec::with_capacity(canvases.len());
         let mut total_height = 0_u32;
         let mut total_width = 0_u32;
@@ -247,6 +245,7 @@ impl Renderer {
         self.gl.tex_parameteri(WebGlRenderingContext::TEXTURE_2D, WebGlRenderingContext::TEXTURE_MAG_FILTER, WebGlRenderingContext::LINEAR as i32);
         self.gl.tex_parameteri(WebGlRenderingContext::TEXTURE_2D, WebGlRenderingContext::TEXTURE_MIN_FILTER, WebGlRenderingContext::LINEAR_MIPMAP_LINEAR as i32);
         self.gl.generate_mipmap(WebGlRenderingContext::TEXTURE_2D);
+        self.texture = Some(tex);
         Ok(TextureAtlas { items: textures, width: total_width, height: total_height })
     }
 
@@ -262,6 +261,19 @@ impl Renderer {
         self.gl.bind_buffer(WebGlRenderingContext::ELEMENT_ARRAY_BUFFER, Some(&self.indices_buffer));
         self.gl.draw_elements_with_i32(WebGlRenderingContext::TRIANGLES, 6 * sprites.len() as i32, WebGlRenderingContext::UNSIGNED_SHORT, 0);
         log_debug("Renderer: render completed");
+    }
+
+    pub fn destroy(&self) {
+        log_info("destroy renderer");
+        match &self.texture {
+            Some(t) => { log_info("delete texture"); self.gl.delete_texture(Some(t)) },
+            None => {}
+        }
+        self.gl.delete_program(Some(&self.program));
+        self.gl.delete_shader(Some(&self.frag_shader));
+        self.gl.delete_shader(Some(&self.vert_shader));
+        self.gl.delete_buffer(Some(&self.indices_buffer));
+        self.gl.delete_buffer(Some(&self.vertices_buffer));
     }
 }
 

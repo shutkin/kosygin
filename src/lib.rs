@@ -16,6 +16,7 @@ mod scene;
 
 #[wasm_bindgen(start)]
 pub fn start() -> Result<(), JsValue> {
+    log_info("Kosygin start");
     let window = web_sys::window().unwrap();
     match create_loading_canvases() {
         Ok(canvases) => {

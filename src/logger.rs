@@ -9,7 +9,7 @@ pub enum Level {
     ERROR
 }
 
-const LOG_LEVEL: Level = DEBUG;
+const LOG_LEVEL: Level = INFO;
 
 pub fn log_debug(x: &str) {
     match LOG_LEVEL {

@@ -40,6 +40,7 @@ pub fn init_with_canvases(window: &web_sys::Window, canvases: Vec<HtmlCanvasElem
     {
         let context_rc = context_rc.clone();
         let closure = Closure::wrap(Box::new(move |_: web_sys::Event| {
+            context_rc.borrow().renderer_context.renderer.destroy();
             match { create_renderer_with_canvases(canvases.clone()) } {
                 Ok(renderer_context) => {
                     (*context_rc).borrow_mut().renderer_context = renderer_context;
@@ -51,7 +52,7 @@ pub fn init_with_canvases(window: &web_sys::Window, canvases: Vec<HtmlCanvasElem
         closure.forget();
     }
 
-    // touch events
+    // control events
     {
         let context_rc = context_rc.clone();
         let closure = Closure::wrap(Box::new(move |e: MouseEvent| {
@@ -105,7 +106,7 @@ fn create_renderer_with_canvases(canvases: Vec<HtmlCanvasElement>) -> Result<Ren
     canvas.set_width(width);
     canvas.set_height(height);
     log_info(format!("Canvas sizes: {}x{}, pixel ratio {}", width, height, pixel_ratio).as_str());
-    let renderer = Renderer::init(&canvas)?;
+    let mut renderer = Renderer::init(&canvas)?;
     let atlas = renderer.create_texture_with_canvases(&document, &canvases)?;
     let projection = Projection::create(width, height);
     Ok(RendererContext { renderer, atlas, projection })
